@@ -1,5 +1,5 @@
 const express = require("express");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
 const cors = require("cors");
 
 const app = express();
@@ -13,10 +13,11 @@ function clean(text) {
 
 async function scrapeNews() {
   try {
-    console.log("🚀 Scraping Puppeteer...");
+    console.log("🚀 Puppeteer scraping...");
 
     const browser = await puppeteer.launch({
       headless: true,
+      executablePath: "/usr/bin/chromium-browser",
       args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
@@ -26,23 +27,18 @@ async function scrapeNews() {
       waitUntil: "networkidle2"
     });
 
-    // attendre que le contenu charge
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
 
     const news = await page.evaluate(() => {
       let results = [];
 
-      document.querySelectorAll("li, .news, .list_item").forEach(el => {
+      document.querySelectorAll("li").forEach(el => {
         const title = el.querySelector("h3")?.innerText || "";
         const desc = el.querySelector("p")?.innerText || "";
-        const img = el.querySelector("img")?.src || "";
+        const image = el.querySelector("img")?.src || "";
 
         if (title.length > 5) {
-          results.push({
-            title,
-            desc,
-            image: img
-          });
+          results.push({ title, desc, image });
         }
       });
 
@@ -53,14 +49,13 @@ async function scrapeNews() {
 
     await browser.close();
 
-    console.log("✅ News récupérées:", cache.length);
+    console.log("✅ News:", cache.length);
 
   } catch (err) {
-    console.log("❌ erreur puppeteer:", err.message);
+    console.log("❌ erreur:", err.message);
   }
 }
 
-// refresh toutes les 10 min
 setInterval(scrapeNews, 600000);
 scrapeNews();
 
