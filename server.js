@@ -1,55 +1,117 @@
-const express = require("express");
-const axios = require("axios");
-const cheerio = require("cheerio");
-const cors = require("cors");
+function showTab(tabId, btn){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.getElementById(tabId).classList.add("active");
 
-const app = express();
-app.use(cors());
-
-let cache = [];
-
-async function scrapeNews() {
-  try {
-    console.log("🚀 Google News RSS...");
-
-    const url =
-      "https://news.google.com/rss/search?q=Seven+Deadly+Sins+Origin&hl=fr&gl=FR&ceid=FR:fr";
-
-    const { data } = await axios.get(url);
-
-    const $ = cheerio.load(data, { xmlMode: true });
-
-    let news = [];
-
-    $("item").each((i, el) => {
-      const title = $(el).find("title").text();
-      const desc = $(el).find("description").text();
-
-      if (title) {
-        news.push({
-          title,
-          desc,
-          image: "https://placehold.co/500x300"
-        });
-      }
-    });
-
-    cache = news.slice(0, 8);
-
-    console.log("✅ RSS News:", cache.length);
-
-  } catch (err) {
-    console.log("❌ erreur:", err.message);
+  if(btn){
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
   }
 }
 
-setInterval(scrapeNews, 600000);
-scrapeNews();
+function openPopup(content){
+  document.getElementById("popup-body").innerHTML = content;
+  document.getElementById("popup").classList.remove("hidden");
+}
 
-app.get("/news", (req, res) => {
-  res.json(cache);
-});
+function closePopup(){
+  document.getElementById("popup").classList.add("hidden");
+}
 
-app.listen(3000, () => {
-  console.log("🔥 serveur lancé");
-});
+const char = "https://placehold.co/70";
+
+// 🔥 TON API
+const API = "https://sevens-backen.onrender.com/news";
+
+// 🔥 IMAGE AUTO (fallback stylé)
+function getImage(title){
+  return `https://source.unsplash.com/500x300/?anime,game,${encodeURIComponent(title)}`;
+}
+
+// LOAD NEWS
+async function loadNews(){
+  try {
+    const res = await fetch(API);
+    const data = await res.json();
+
+    const container = document.getElementById("news");
+    container.innerHTML = "";
+
+    data.forEach(n => {
+
+      const img = getImage(n.title);
+
+      const card = document.createElement("div");
+      card.className = "card";
+
+      card.innerHTML = `
+        <h3>${n.title}</h3>
+        <img src="${img}">
+        <p>${n.desc}</p>
+      `;
+
+      card.onclick = () => {
+        openPopup(`
+          <h2>${n.title}</h2>
+          <img src="${img}">
+          <p>${n.desc}</p>
+        `);
+      };
+
+      container.appendChild(card);
+    });
+
+  } catch (err) {
+    console.log("Erreur API :", err);
+  }
+}
+
+// TEAMS
+function addTeam(name){
+  const container = document.getElementById("teams");
+
+  const card = document.createElement("div");
+  card.className = "card";
+
+  let charsHTML = `<div class="team">`;
+
+  for(let i=0;i<3;i++){
+    charsHTML += `<div class="char"><img src="${char}"></div>`;
+  }
+
+  charsHTML += `</div>`;
+
+  card.innerHTML = `<h3>${name}</h3>${charsHTML}`;
+
+  card.onclick = () => {
+    openPopup(`<h2>${name}</h2><p>Détails de la team</p>`);
+  };
+
+  container.appendChild(card);
+}
+
+// GUIDES
+function addGuide(title, desc){
+  const container = document.getElementById("guides");
+
+  const card = document.createElement("div");
+  card.className = "card";
+
+  card.innerHTML = `<h3>${title}</h3><p>${desc}</p>`;
+
+  card.onclick = () => {
+    openPopup(`<h2>${title}</h2><p>${desc}</p>`);
+  };
+
+  container.appendChild(card);
+}
+
+// INIT
+loadNews();
+
+addTeam("Team Débutant");
+addTeam("Team PvP");
+
+addGuide("Guide débutant","Comment bien commencer");
+
+// refresh auto
+setInterval(loadNews, 300000);
