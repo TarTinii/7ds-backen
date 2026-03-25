@@ -1,6 +1,5 @@
 const express = require("express");
-const axios = require("axios");
-const cheerio = require("cheerio");
+const puppeteer = require("puppeteer");
 const cors = require("cors");
 
 const app = express();
@@ -14,48 +13,54 @@ function clean(text) {
 
 async function scrapeNews() {
   try {
-    // 🔥 URL PLUS STABLE
-    const url = "https://7origin.netmarble.com/fr/notice";
+    console.log("🚀 Scraping Puppeteer...");
 
-    const { data } = await axios.get(url, {
-      headers: { "User-Agent": "Mozilla/5.0" }
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
     });
 
-    const $ = cheerio.load(data);
+    const page = await browser.newPage();
 
-    let news = [];
-
-    $(".list_item, li").each((i, el) => {
-
-      const title = clean($(el).find("strong, .title").text());
-      const desc = clean($(el).find("p").text());
-
-      let image =
-        $(el).find("img").attr("src") ||
-        "https://placehold.co/500x300";
-
-      if (image && image.startsWith("/")) {
-        image = "https://7origin.netmarble.com" + image;
-      }
-
-      if (title.length > 5 && !news.some(n => n.title === title)) {
-        news.push({
-          title,
-          desc,
-          image
-        });
-      }
+    await page.goto("https://7origin.netmarble.com/fr", {
+      waitUntil: "networkidle2"
     });
 
-    cache = news.slice(0, 10);
+    // attendre que le contenu charge
+    await page.waitForTimeout(3000);
 
-    console.log("✅ News trouvées:", cache.length);
+    const news = await page.evaluate(() => {
+      let results = [];
+
+      document.querySelectorAll("li, .news, .list_item").forEach(el => {
+        const title = el.querySelector("h3")?.innerText || "";
+        const desc = el.querySelector("p")?.innerText || "";
+        const img = el.querySelector("img")?.src || "";
+
+        if (title.length > 5) {
+          results.push({
+            title,
+            desc,
+            image: img
+          });
+        }
+      });
+
+      return results;
+    });
+
+    cache = news.slice(0, 8);
+
+    await browser.close();
+
+    console.log("✅ News récupérées:", cache.length);
 
   } catch (err) {
-    console.log("❌ erreur:", err.message);
+    console.log("❌ erreur puppeteer:", err.message);
   }
 }
 
+// refresh toutes les 10 min
 setInterval(scrapeNews, 600000);
 scrapeNews();
 
