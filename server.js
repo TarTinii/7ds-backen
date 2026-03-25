@@ -1,5 +1,6 @@
 const express = require("express");
 const axios = require("axios");
+const cheerio = require("cheerio");
 const cors = require("cors");
 
 const app = express();
@@ -9,31 +10,33 @@ let cache = [];
 
 async function scrapeNews() {
   try {
-    console.log("🚀 API Netmarble...");
+    console.log("🚀 Google News RSS...");
 
-    const { data } = await axios.get(
-      "https://7origin.netmarble.com/api/content/list",
-      {
-        headers: {
-          "User-Agent": "Mozilla/5.0",
-          "Accept": "application/json"
-        }
+    const url =
+      "https://news.google.com/rss/search?q=Seven+Deadly+Sins+Origin&hl=fr&gl=FR&ceid=FR:fr";
+
+    const { data } = await axios.get(url);
+
+    const $ = cheerio.load(data, { xmlMode: true });
+
+    let news = [];
+
+    $("item").each((i, el) => {
+      const title = $(el).find("title").text();
+      const desc = $(el).find("description").text();
+
+      if (title) {
+        news.push({
+          title,
+          desc,
+          image: "https://placehold.co/500x300"
+        });
       }
-    );
-
-    const list = data?.data || [];
-
-    const news = list
-      .filter(item => item.title)
-      .map(item => ({
-        title: item.title,
-        desc: item.summary || "",
-        image: item.thumbnail || "https://placehold.co/500x300"
-      }));
+    });
 
     cache = news.slice(0, 8);
 
-    console.log("✅ News API:", cache.length);
+    console.log("✅ RSS News:", cache.length);
 
   } catch (err) {
     console.log("❌ erreur:", err.message);
